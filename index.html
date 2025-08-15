@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rebuss - Controle do Inventário</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            color: #1a1a1a;
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-content {
+            text-align: center;
+            animation: fadeInUp 0.6s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .loading-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: white;
+            margin: 0 auto 24px;
+            animation: pulse 1.5s ease infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        
+        .loading-subtext {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-top {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 12px 20px;
+        }
+        
+        .header-top-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo {
+            width: 36px;
+            height: 36px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.25rem;
+            color: #1e293b;
+        }
+        
+        .company-info {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+        
+        .store-info {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .current-time {
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+        
+        /* Info Bar */
+        .info-bar {
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .info-bar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .info-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-active {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .status-waiting {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+        
+        /* Critical Metrics */
+        .critical-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        
+        .metric-card.attendance::before { background: #3b82f6; }
+        .metric-card.progress::before { background: #8b5cf6; }
+        .metric-card.productivity::before { background: #10b981; }
+        .metric-card.quality::before { background: #f59e0b; }
+        .metric-card.time::before { background: #ef4444; }
+        
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .metric-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        
+        .metric-card.attendance .metric-icon {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .metric-card.progress .metric-icon {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+        
+        .metric-card.productivity .metric-icon {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .metric-card.quality .metric-icon {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .metric-card.time .metric-icon {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .metric-trend {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .trend-up {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .trend-down {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .metric-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+        
+        .metric-details {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .metric-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #f3f4f6;
+            border-radius: 3px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        
+        /* Alerts Bar */
+        .alerts-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .alerts-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #3b82f6);
+            animation: alertGradient 3s ease infinite;
+        }
+        
+        @keyframes alertGradient {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(10px); }
+        }
+        
+        .alerts-container {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            align-items: stretch;
+            padding-bottom: 4px;
+            margin-top: 4px;
+        }
+        
+        .alerts-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        
+        .alerts-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 2px;
+        }
+        
+        .alerts-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 2px;
+        }
+        
+        .alert-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            min-width: fit-content;
+            background: white;
+            border: 1px solid;
+            flex-shrink: 0;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .alert-inline.alert-critical {
+            border-color: #ef4444;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .alert-inline.alert-warning {
+            border-color: #f59e0b;
+            border-left: 3px solid #f59e0b;
+        }
+        
+        .alert-inline.alert-info {
+            border-color: #3b82f6;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .alert-icon {
+            font-size: 1.125rem;
+            flex-shrink: 0;
+        }
+        
+        .alert-content {
+            font-size: 0.8125rem;
+            white-space: nowrap;
+            color: #374151;
+        }
+        
+        .alert-content strong {
+            font-weight: 600;
+            color: #111827;
+        }
+        
+        /* Auto Refresh Indicator */
+        .auto-refresh-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 1px solid #86efac;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #059669;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .refresh-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        
+        .refresh-text {
+            font-weight: 500;
+            letter-spacing: 0.025em;
+        }
+        
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+        }
+        
+        /* Team Section */
+        .team-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .team-stats {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .team-stat {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .team-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        
+        .team-stat-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        
+        .operators-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .operators-section-title {
+            font-weight: 600;
+            color: #059669;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .operators-section-count {
+            background: #d1fae5;
+            color: #059669;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .operators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 8px;
+            margin-bottom: 12px;
+            transition: max-height 0.3s ease;
+        }
+        
+        .operators-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .operators-grid::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .operators-grid::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 3px;
+        }
+        
+        .operators-grid::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        .operator-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            transition: all 0.2s ease;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .operator-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .operator-card.present {
+            background: #f0fdf4;
+            border-color: #86efac;
+        }
+        
+        .operator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .operator-name {
+            font-weight: 600;
+            color: #111827;
+        }
+        
+        .presence-toggle {
+            width: 48px;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .presence-toggle.active {
+            background: #10b981;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .presence-toggle-button {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .presence-toggle.active .presence-toggle-button {
+            transform: translateX(24px);
+        }
+        
+        .presence-toggle:hover .presence-toggle-button {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .operator-details {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        
+        .operator-performance {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .performance-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #059669;
+        }
+        
+        /* Absent Section */
+        .absent-section {
+            background: linear-gradient(135deg, #fef2f2, #fff5f5);
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .absent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #fecaca;
+        }
+        
+        .absent-title {
+            font-weight: 600;
+            color: #991b1b;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .absent-count {
+            background: #dc2626;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .absent-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .absent-operator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #fca5a5;
+            font-size: 0.8125rem;
+            transition: all 0.2s ease;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .absent-operator:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .absent-operator-name {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .absent-operator-code {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        
+        .absent-operator-action {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .absent-operator-action:hover {
+            background: #2563eb;
+        }
+        
+        /* Side Panel */
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .panel-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-container {
+            height: 250px;
+            margin-top: 16px;
+        }
+        
+        /* Controls */
+        .controls-section {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .control-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        /* Contact Section */
+        .contacts-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .contact-card {
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .contact-name {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+        
+        .contact-role {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        
+        .contact-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .contact-btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .contact-btn:hover {
+            background: #f3f4f6;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .critical-metrics {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+            
+            .alerts-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .alert-inline {
+                white-space: normal;
+                min-width: 100%;
+            }
+            
+            .alert-content {
+                white-space: normal;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .info-bar-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .operators-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .critical-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Animations */
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-logo">R</div>
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Carregando Painel de Controle</div>
+            <div class="loading-subtext">Sincronizando dados do inventário...</div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-top">
+            <div class="header-top-content">
+                <div class="logo-section">
+                    <div class="logo">R</div>
+                    <div>
+                        <div class="company-info">IKESAKI</div>
+                        <div class="store-info">Vila Maria - SP | Inventário #105723</div>
+                    </div>
+                </div>
+                <div class="live-status">
+                    <div class="status-indicator">
+                        <div class="live-dot"></div>
+                        <span>EM EXECUÇÃO</span>
+                    </div>
+                    <div class="current-time" id="currentTime">14:35:22</div>
+                </div>
+            </div>
+        </div>
+        <div class="info-bar">
+            <div class="info-bar-content">
+                <div class="info-item">
+                    <span class="info-label">Supervisor:</span>
+                    <span class="info-value">Luiz Fernando</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Início Programado:</span>
+                    <span class="info-value">08:00</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Primeira Coleta:</span>
+                    <span class="info-value">08:20</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Tempo Decorrido:</span>
+                    <span class="info-value" id="elapsedTime">6h 15min</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Status:</span>
+                    <span class="status-badge status-active">CONTAGEM ATIVA</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Critical Metrics -->
+        <div class="critical-metrics">
+            <div class="metric-card attendance">
+                <div class="metric-header">
+                    <div class="metric-icon">👥</div>
+                    <div class="metric-trend trend-down">-20%</div>
+                </div>
+                <div class="metric-title">Presença</div>
+                <div class="metric-value">8/10</div>
+                <div class="metric-details">80% da equipe presente</div>
+                <div class="metric-progress-bar">
+                    <div class="progress-fill" style="background: #3b82f6; width: 80%"></div>
+                </div>
+            </div>
+
+            <div class="metric-card progress">
+                <div class="metric-header">
+                    <div class="metric-icon">📦</div>
+                    <div class="metric-trend trend-up">+5%</div>
+                </div>
+                <div class="metric-title">Progresso Geral</div>
+                <div class="metric-value">44.5%</div>
+                <div class="metric-details">98K / 220K unidades</div>
+                <div class="metric-progress-bar">
+                    <div class="progress-fill" style="background: #8b5cf6; width: 44.5%"></div>
+                </div>
+            </div>
+
+            <div class="metric-card productivity">
+                <div class="metric-header">
+                    <div class="metric-icon">⚡</div>
+                    <div class="metric-trend trend-up">+12%</div>
+                </div>
+                <div class="metric-title">Produtividade</div>
+                <div class="metric-value">15.7K</div>
+                <div class="metric-details">unid/hora (Meta: 14K)</div>
+                <div class="metric-progress-bar">
+                    <div class="progress-fill" style="background: #10b981; width: 112%"></div>
+                </div>
+            </div>
+
+            <div class="metric-card quality">
+                <div class="metric-header">
+                    <div class="metric-icon">✅</div>
+                    <div class="metric-trend trend-up">+2%</div>
+                </div>
+                <div class="metric-title">Acuracidade</div>
+                <div class="metric-value">98.7%</div>
+                <div class="metric-details">Taxa de precisão</div>
+                <div class="metric-progress-bar">
+                    <div class="progress-fill" style="background: #f59e0b; width: 98.7%"></div>
+                </div>
+            </div>
+
+            <div class="metric-card time">
+                <div class="metric-header">
+                    <div class="metric-icon">⏱️</div>
+                    <div class="metric-trend trend-down">-10min</div>
+                </div>
+                <div class="metric-title">Tempo Estimado</div>
+                <div class="metric-value">7.8h</div>
+                <div class="metric-details">para conclusão</div>
+                <div class="metric-progress-bar">
+                    <div class="progress-fill" style="background: #ef4444; width: 44.5%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Bar -->
+        <div class="alerts-bar">
+            <div class="alerts-container" id="alertsContainer">
+                <div class="alert-inline alert-critical">
+                    <span class="alert-icon">⚠️</span>
+                    <div class="alert-content">
+                        <strong>Presença Crítica:</strong> 2 operadores ausentes (20%)
+                    </div>
+                </div>
+                <div class="alert-inline alert-warning">
+                    <span class="alert-icon">🐌</span>
+                    <div class="alert-content">
+                        <strong>Setor A3:</strong> Ritmo 800 unid/h (Meta: 1.2K)
+                    </div>
+                </div>
+                <div class="alert-inline alert-info">
+                    <span class="alert-icon">⏰</span>
+                    <div class="alert-content">
+                        <strong>Pausa em 30min:</strong> Almoço 12:00-13:00
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Team Section -->
+            <div class="team-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>👥</span>
+                        <span>Equipe de Operadores</span>
+                    </h2>
+                    <div class="auto-refresh-indicator">
+                        <span class="refresh-dot"></span>
+                        <span class="refresh-text">Atualizando automaticamente</span>
+                    </div>
+                </div>
+
+                <div class="team-stats">
+                    <div class="team-stat">
+                        <div class="team-stat-value" style="color: #059669;">8</div>
+                        <div class="team-stat-label">Presentes</div>
+                    </div>
+                    <div class="team-stat">
+                        <div class="team-stat-value" style="color: #dc2626;">2</div>
+                        <div class="team-stat-label">Ausentes</div>
+                    </div>
+                    <div class="team-stat">
+                        <div class="team-stat-value" style="color: #3b82f6;">1.96K</div>
+                        <div class="team-stat-label">Média/Operador</div>
+                    </div>
+                </div>
+                
+                <!-- Present Operators Section -->
+                <div class="operators-section-header">
+                    <span class="operators-section-title">✅ Operadores em Atividade</span>
+                    <span class="operators-section-count" id="presentSectionCount">8 ativos</span>
+                </div>
+
+                <div class="operators-grid" id="operatorsGrid">
+                    <!-- Operators will be populated by JavaScript -->
+                </div>
+                
+                <!-- Absent Operators Section -->
+                <div class="absent-section" id="absentSection">
+                    <div class="absent-header">
+                        <span class="absent-title">❌ Operadores Ausentes</span>
+                        <span class="absent-count" id="absentCount">2 ausentes</span>
+                    </div>
+                    <div class="absent-list" id="absentList">
+                        <!-- Absent operators will be listed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Panel -->
+            <div class="side-panel">
+                <!-- Real-time Chart -->
+                <div class="panel-card">
+                    <h3 class="section-title">
+                        <span>📈</span>
+                        <span>Ritmo em Tempo Real</span>
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="realtimeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Contacts -->
+                <div class="panel-card">
+                    <h3 class="section-title">
+                        <span>📞</span>
+                        <span>Contatos Rápidos</span>
+                    </h3>
+                    <div class="contacts-grid">
+                        <div class="contact-card">
+                            <div class="contact-name">Hiroshi Tanaka</div>
+                            <div class="contact-role">Gerente IKESAKI</div>
+                            <div class="contact-actions">
+                                <button class="contact-btn" onclick="call('+55 11 94567-8901')">📞 Ligar</button>
+                                <button class="contact-btn" onclick="whatsapp('+55 11 94567-8901')">💬 WhatsApp</button>
+                                <button class="contact-btn" onclick="email('hiroshi.tanaka@ikesaki.com')">✉️ Email</button>
+                            </div>
+                        </div>
+                        <div class="contact-card">
+                            <div class="contact-name">Central Rebuss</div>
+                            <div class="contact-role">Suporte Técnico</div>
+                            <div class="contact-actions">
+                                <button class="contact-btn" onclick="call('+55 11 3000-0000')">📞 Ligar</button>
+                                <button class="contact-btn" onclick="whatsapp('+55 11 93000-0000')">💬 WhatsApp</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="panel-card">
+                    <h3 class="section-title">
+                        <span>⚙️</span>
+                        <span>Ações Rápidas</span>
+                    </h3>
+                    <div class="controls-section">
+                        <button class="control-btn btn-primary" onclick="pauseInventory()">
+                            ⏸️ Pausar
+                        </button>
+                        <button class="control-btn btn-secondary" onclick="exportData()">
+                            📊 Exportar
+                        </button>
+                    </div>
+                    <div class="controls-section">
+                        <button class="control-btn btn-danger" onclick="reportIssue()">
+                            🚨 Reportar Problema
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const alertsData = [
+            {type: 'critical', icon: '⚠️', title: 'Presença Crítica', detail: '2 operadores ausentes (20%)'},
+            {type: 'warning', icon: '🐌', title: 'Setor A3', detail: 'Ritmo 800 unid/h (Meta: 1.2K)'},
+            {type: 'info', icon: '⏰', title: 'Pausa em 30min', detail: 'Almoço 12:00-13:00'},
+            {type: 'warning', icon: '📉', title: 'Queda de Produtividade', detail: 'Operador #204 - 15% abaixo'},
+            {type: 'critical', icon: '🔴', title: 'Scanner Offline', detail: 'Terminal 3 sem conexão'},
+            {type: 'info', icon: '📊', title: 'Meta Alcançada', detail: 'Setor B2 - 105% da meta'}
+        ];
+
+        function rotateAlerts() {
+            const container = document.getElementById('alertsContainer');
+            const currentAlerts = alertsData.slice(0, 3 + Math.floor(Math.random() * 2));
+            
+            container.innerHTML = currentAlerts.map(alert => `
+                <div class="alert-inline alert-${alert.type}">
+                    <span class="alert-icon">${alert.icon}</span>
+                    <div class="alert-content">
+                        <strong>${alert.title}:</strong> ${alert.detail}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Sample operator data
+        const operators = [
+            {name: "Roberto Silva", present: true, code: "201", unitsCount: 12300, productivity: 2050, lastUpdate: "14:32"},
+            {name: "Patricia Lima", present: true, code: "202", unitsCount: 11800, productivity: 1967, lastUpdate: "14:33"},
+            {name: "Fernando Costa", present: false, code: "203", unitsCount: 0, productivity: 0, lastUpdate: "-"},
+            {name: "Juliana Santos", present: true, code: "204", unitsCount: 13200, productivity: 2200, lastUpdate: "14:34"},
+            {name: "Carlos Mendes", present: true, code: "205", unitsCount: 10500, productivity: 1750, lastUpdate: "14:31"},
+            {name: "Lucia Andrade", present: true, code: "206", unitsCount: 12100, productivity: 2017, lastUpdate: "14:35"},
+            {name: "Marco Pereira", present: false, code: "207", unitsCount: 0, productivity: 0, lastUpdate: "-"},
+            {name: "Isabel Gomes", present: true, code: "208", unitsCount: 9800, productivity: 1633, lastUpdate: "14:30"},
+            {name: "Rafael Santos", present: true, code: "209", unitsCount: 14200, productivity: 2367, lastUpdate: "14:34"},
+            {name: "Ana Costa", present: true, code: "210", unitsCount: 14100, productivity: 2350, lastUpdate: "14:35"}
+        ];
+
+        function renderOperators() {
+            const grid = document.getElementById('operatorsGrid');
+            const absentList = document.getElementById('absentList');
+            const absentCount = document.getElementById('absentCount');
+            const absentSection = document.getElementById('absentSection');
+            
+            // Separate present and absent operators
+            const presentOperators = operators.filter(op => op.present);
+            const absentOperators = operators.filter(op => !op.present);
+            
+            // Adjust grid height based on absent operators
+            if (absentOperators.length === 0) {
+                grid.style.maxHeight = '500px';
+            } else {
+                grid.style.maxHeight = '350px';
+            }
+            
+            // Render present operators in grid
+            grid.innerHTML = presentOperators.map(op => `
+                <div class="operator-card present">
+                    <div class="operator-header">
+                        <div class="operator-name">${op.name}</div>
+                        <div class="presence-toggle active" onclick="togglePresence('${op.code}')">
+                            <div class="presence-toggle-button"></div>
+                        </div>
+                    </div>
+                    <div class="operator-details">Código: ${op.code}</div>
+                    <div class="operator-details">Última atualização: ${op.lastUpdate}</div>
+                    <div class="operator-performance">
+                        <div class="performance-value">${formatNumber(op.unitsCount)} unidades</div>
+                        <div class="operator-details">${op.productivity} unid/hora</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Render absent operators in compact list
+            if (absentOperators.length > 0) {
+                absentSection.style.display = 'block';
+                absentCount.textContent = `${absentOperators.length} ausente${absentOperators.length > 1 ? 's' : ''}`;
+                
+                absentList.innerHTML = absentOperators.map(op => `
+                    <div class="absent-operator">
+                        <span class="absent-operator-name">${op.name}</span>
+                        <span class="absent-operator-code">(${op.code})</span>
+                        <button class="absent-operator-action" onclick="togglePresence('${op.code}')">
+                            Marcar presente
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                absentSection.style.display = 'none';
+            }
+            
+            // Update section counts
+            const presentSectionCount = document.getElementById('presentSectionCount');
+            if (presentSectionCount) {
+                presentSectionCount.textContent = `${presentOperators.length} ativo${presentOperators.length !== 1 ? 's' : ''}`;
+            }
+            
+            // Update team stats
+            updateTeamStats();
+        }
+        
+        function togglePresence(code) {
+            const operator = operators.find(op => op.code === code);
+            if (operator) {
+                operator.present = !operator.present;
+                
+                // Visual feedback
+                const event = operator.present ? 'chegou' : 'saiu';
+                showNotification(`${operator.name} ${event}`, operator.present ? 'success' : 'warning');
+                
+                // Reset counts if marking as absent
+                if (!operator.present) {
+                    operator.unitsCount = 0;
+                    operator.productivity = 0;
+                    operator.lastUpdate = '-';
+                } else {
+                    // Initialize with some values if marking as present
+                    operator.unitsCount = Math.floor(Math.random() * 5000) + 1000;
+                    operator.productivity = Math.floor(operator.unitsCount / 6);
+                    const now = new Date();
+                    operator.lastUpdate = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                }
+                
+                renderOperators();
+                updateMetrics();
+            }
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <span class="notification-icon">${type === 'success' ? '✅' : '⚠️'}</span>
+                <span>${message}</span>
+            `;
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: ${type === 'success' ? '#10b981' : '#f59e0b'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.875rem;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideInRight 0.3s ease;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        function updateMetrics() {
+            // Update attendance metric
+            const presentCount = operators.filter(op => op.present).length;
+            const totalCount = operators.length;
+            const attendancePercentage = (presentCount / totalCount * 100).toFixed(1);
+            
+            // Update the attendance metric card
+            const attendanceCard = document.querySelector('.metric-card.attendance');
+            if (attendanceCard) {
+                attendanceCard.querySelector('.metric-value').textContent = `${presentCount}/${totalCount}`;
+                attendanceCard.querySelector('.metric-details').textContent = `${attendancePercentage}% da equipe presente`;
+                attendanceCard.querySelector('.progress-fill').style.width = `${attendancePercentage}%`;
+            }
+        }
+        
+        function updateTeamStats() {
+            const presentCount = operators.filter(op => op.present).length;
+            const absentCount = operators.filter(op => !op.present).length;
+            const avgProductivity = operators
+                .filter(op => op.present)
+                .reduce((sum, op) => sum + op.productivity, 0) / presentCount || 0;
+            
+            // Update the team stats display
+            const statsHtml = `
+                <div class="team-stat">
+                    <div class="team-stat-value" style="color: #059669;">${presentCount}</div>
+                    <div class="team-stat-label">Presentes</div>
+                </div>
+                <div class="team-stat">
+                    <div class="team-stat-value" style="color: #dc2626;">${absentCount}</div>
+                    <div class="team-stat-label">Ausentes</div>
+                </div>
+                <div class="team-stat">
+                    <div class="team-stat-value" style="color: #3b82f6;">${(avgProductivity / 1000).toFixed(1)}K</div>
+                    <div class="team-stat-label">Média/Operador</div>
+                </div>
+            `;
+            
+            document.querySelector('.team-stats').innerHTML = statsHtml;
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        function createRealtimeChart() {
+            const ctx = document.getElementById('realtimeChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'],
+                    datasets: [{
+                        label: 'Unidades/Hora',
+                        data: [12000, 14500, 15200, 15800, 14200, 15500, 15700],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Meta',
+                        data: [14000, 14000, 14000, 14000, 14000, 14000, 14000],
+                        borderColor: '#ef4444',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateElapsedTime() {
+            const startTime = new Date();
+            startTime.setHours(8, 20, 0);
+            const now = new Date();
+            const elapsed = now - startTime;
+            
+            const hours = Math.floor(elapsed / (1000 * 60 * 60));
+            const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+            
+            document.getElementById('elapsedTime').textContent = `${hours}h ${minutes}min`;
+        }
+
+        function updateOperators() {
+            // Update only present operators
+            operators.forEach(op => {
+                if (op.present) {
+                    op.unitsCount += Math.floor(Math.random() * 500) + 100;
+                    op.productivity = Math.floor(op.unitsCount / 6);
+                    
+                    const now = new Date();
+                    op.lastUpdate = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                }
+            });
+            
+            renderOperators();
+            updateMetrics();
+        }
+
+        function pauseInventory() {
+            if (confirm('Deseja pausar o inventário?')) {
+                alert('Inventário pausado. Todos os operadores foram notificados.');
+            }
+        }
+
+        function exportData() {
+            alert('Exportando dados do inventário...');
+        }
+
+        function reportIssue() {
+            const issue = prompt('Descreva o problema:');
+            if (issue) {
+                alert('Problema reportado com sucesso. A central foi notificada.');
+            }
+        }
+
+        function call(phone) {
+            window.open(`tel:${phone}`, '_self');
+        }
+
+        function whatsapp(phone) {
+            const message = encodeURIComponent('Olá, entrando em contato sobre o inventário IKESAKI - Vila Maria.');
+            const cleanPhone = phone.replace(/\D/g, '');
+            window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+        }
+
+        function email(address) {
+            const subject = encodeURIComponent('Inventário IKESAKI - Vila Maria');
+            const body = encodeURIComponent('Olá,\n\nEntrando em contato sobre o inventário em andamento.\n\nAtenciosamente,\nSupervisor');
+            window.open(`mailto:${address}?subject=${subject}&body=${body}`, '_self');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide loading overlay
+            setTimeout(() => {
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                loadingOverlay.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                }, 500);
+            }, 1500);
+            
+            renderOperators();
+            createRealtimeChart();
+            rotateAlerts();
+            updateMetrics();
+            
+            // Update time
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('currentTime').textContent = now.toLocaleTimeString('pt-BR');
+                updateElapsedTime();
+            }, 1000);
+            
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                updateOperators();
+            }, 30000);
+            
+            // Rotate alerts every 45 seconds
+            setInterval(() => {
+                rotateAlerts();
+            }, 45000);
+        });
+    </script>
+</body>
+</html>
